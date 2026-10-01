@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,8 +29,8 @@ def _positive_float(name: str, default: float) -> float:
         value = float(raw)
     except ValueError as exc:
         raise ConfigError(f"{name} должен быть числом") from exc
-    if value <= 0:
-        raise ConfigError(f"{name} должен быть больше нуля")
+    if not math.isfinite(value) or value <= 0:
+        raise ConfigError(f"{name} должен быть конечным числом больше нуля")
     return value
 
 

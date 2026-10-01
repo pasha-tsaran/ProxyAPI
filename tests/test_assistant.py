@@ -28,6 +28,34 @@ class FailingClient:
         raise RuntimeError("network failed")
 
 
+@pytest.mark.parametrize("raw", ["nan", "inf", "-inf"])
+def test_settings_reject_nonfinite_timeout(monkeypatch, raw):
+    monkeypatch.setenv("REQUEST_TIMEOUT_SECONDS", raw)
+    with pytest.raises(ConfigError):
+        Settings.from_env(require_key=False)
+
+
+def test_failed_save_preserves_in_memory_history(tmp_path, monkeypatch):
+    store = HistoryStore(tmp_path / "history.json")
+    service = ChatService(FakeClient(), store)
+    monkeypatch.setattr(store, "save", Mock(side_effect=OSError("disk full")))
+    with pytest.raises(OSError):
+        service.ask("Не сохраняй меня")
+    assert service.history == []
+
+
+def test_failed_clear_preserves_in_memory_history(tmp_path, monkeypatch):
+    store = HistoryStore(tmp_path / "history.json")
+    service = ChatService(FakeClient(), store)
+    service.ask("Привет")
+    previous = list(service.history)
+    monkeypatch.setattr(store, "clear", Mock(side_effect=OSError("access denied")))
+    with pytest.raises(OSError):
+        service.clear()
+    assert service.history == previous
+    assert store.load() == previous
+
+
 def test_history_is_saved_and_loaded_between_services(tmp_path: Path) -> None:
     store = HistoryStore(tmp_path / "history.json")
     first = ChatService(FakeClient(), store)
